@@ -12,11 +12,21 @@ import java.nio.file.Paths;
  */
 public class PIAManager
 {
+    public PIAManager()
+    {
+        startProcessAndReadFirstEcho(buildScriptProcess("pia_background.bat", "enable"));
+    }
+
     /**
      * The absolute path to the project resource folder
      */
     private static final String RESOURCE_DIRECTORY =
             Paths.get("src", "main", "resources").toFile().getAbsolutePath();
+
+    /**
+     * The absolute path to the folder containing the PIA CLI executable
+     */
+    private static final String PIA_CTL_DIRECTORY = "C:\\Program Files\\Private Internet Access";
 
     public void changeRegion(PiaVpnRegion vpnRegion)
     {
@@ -54,11 +64,87 @@ public class PIAManager
 
     /**
      *
+     */
+    public void connect()
+    {
+        String region = checkConnectionRegion();
+
+        ProcessBuilder processBuilder = buildScriptProcess("pia_connect.bat");
+
+        try
+        {
+            processBuilder.start();
+
+            boolean newRegionConnected = false;
+            while (!newRegionConnected)
+            {
+                String newRegion = checkConnectionRegion();
+                if (checkConnectionStatus().equals("Connected")
+                        && (newRegion.equals(region) || (region.equals("auto"))))
+                {
+                    newRegionConnected = true;
+                }
+            }
+
+            boolean newIpObtained = false;
+            while (!newIpObtained)
+            {
+                if (!checkVpnIp().equals("Unknown"))
+                {
+                    newIpObtained = true;
+                    System.out.println();
+                }
+            }
+
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     *
+     */
+    public void disconnect()
+    {
+        startProcessAndReadFirstEcho(buildScriptProcess("pia_disconnect.bat"));
+    }
+
+    /**
+     *
+     * @param username
+     * @param password
+     * @return
+     */
+    public String login(String username, String password)
+    {
+        String result = startProcessAndReadFirstEcho(buildScriptProcess("pia_login.bat", username, password,
+                RESOURCE_DIRECTORY));
+
+        if (result.isEmpty())
+        {
+            return "Logged in";
+        } else
+        {
+            return "result";
+        }
+    }
+
+    /**
+     *
+     */
+    public void logout()
+    {
+        startProcessAndReadFirstEcho(buildScriptProcess("pia_logout.bat"));
+    }
+
+    /**
+     *
      * @return the PIA VPN client connection status
      */
     public String checkConnectionStatus()
     {
-        return startProcessAndReadFirstEcho(buildScriptProcess("get_region.bat"));
+        return startProcessAndReadFirstEcho(buildScriptProcess("pia_get.bat", "connectionstatus"));
     }
 
     /**
@@ -67,7 +153,7 @@ public class PIAManager
      */
     public String checkConnectionRegion()
     {
-        return startProcessAndReadFirstEcho(buildScriptProcess("get_connection_state.bat"));
+        return startProcessAndReadFirstEcho(buildScriptProcess("pia_get.bat", "region"));
     }
 
     /**
@@ -76,7 +162,7 @@ public class PIAManager
      */
     public String checkVpnIp()
     {
-        return startProcessAndReadFirstEcho(buildScriptProcess("get_vpnip.bat"));
+        return startProcessAndReadFirstEcho(buildScriptProcess("pia_get.bat", "vpnip"));
     }
 
 
@@ -94,7 +180,7 @@ public class PIAManager
             fileNameAndArgs.append(" ").append(positionalArg);
 
         ProcessBuilder processBuilder = new ProcessBuilder();
-        processBuilder.directory(new File("C:\\Program Files\\Private Internet Access"));
+        processBuilder.directory(new File(PIA_CTL_DIRECTORY));
         processBuilder.command("cmd.exe", "/c",
                 RESOURCE_DIRECTORY + "\\bat\\" + fileNameAndArgs.toString());
 

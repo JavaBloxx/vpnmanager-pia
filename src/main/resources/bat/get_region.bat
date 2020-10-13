@@ -1,1 +1,0 @@
-piactl get region
