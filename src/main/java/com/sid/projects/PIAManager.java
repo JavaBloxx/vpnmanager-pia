@@ -28,8 +28,15 @@ public class PIAManager
      */
     private static final String PIA_CTL_DIRECTORY = "C:\\Program Files\\Private Internet Access";
 
-    public void changeRegion(PiaVpnRegion vpnRegion)
+    /**
+     *
+     * @param vpnRegion
+     * @return
+     */
+    public String swapConnectedRegions(PiaVpnRegion vpnRegion)
     {
+        if (!checkConnectionStatus().equals("Connected")) return "Not connected";
+
         ProcessBuilder processBuilder = buildScriptProcess("set_region.bat", vpnRegion.toString());
 
         try
@@ -52,7 +59,6 @@ public class PIAManager
                 if (!checkVpnIp().equals("Unknown"))
                 {
                     newIpObtained = true;
-                    System.out.println();
                 }
             }
 
@@ -60,14 +66,32 @@ public class PIAManager
         {
             e.printStackTrace();
         }
+
+        return "Connected";
+    }
+
+    public String changeRegion(PiaVpnRegion region)
+    {
+        return startProcessAndReadFirstEcho(buildScriptProcess("set_region.bat", region.toString()));
     }
 
     /**
      *
      */
-    public void connect()
+    public String connect(PiaVpnRegion region)
     {
-        String region = checkConnectionRegion();
+        String connectionStatus = checkConnectionStatus();
+        if (connectionStatus.equals("Connected")
+                || connectionStatus.equals("Connecting")
+                || connectionStatus.equals("Reconnecting"))
+        {
+            disconnect();
+        }
+
+        if (!checkConnectionRegion().equals(region.toString()))
+        {
+            changeRegion(region);
+        }
 
         ProcessBuilder processBuilder = buildScriptProcess("pia_connect.bat");
 
@@ -78,9 +102,8 @@ public class PIAManager
             boolean newRegionConnected = false;
             while (!newRegionConnected)
             {
-                String newRegion = checkConnectionRegion();
-                if (checkConnectionStatus().equals("Connected")
-                        && (newRegion.equals(region) || (region.equals("auto"))))
+                System.out.println("Looping Status");
+                if (checkConnectionStatus().equals("Connected"))
                 {
                     newRegionConnected = true;
                 }
@@ -89,17 +112,19 @@ public class PIAManager
             boolean newIpObtained = false;
             while (!newIpObtained)
             {
+                System.out.println("Looping IP");
                 if (!checkVpnIp().equals("Unknown"))
                 {
                     newIpObtained = true;
-                    System.out.println();
                 }
             }
 
         } catch (IOException e)
         {
             e.printStackTrace();
+            return "Connection Failed";
         }
+        return "Connected";
     }
 
     /**
@@ -120,13 +145,12 @@ public class PIAManager
     {
         String result = startProcessAndReadFirstEcho(buildScriptProcess("pia_login.bat", username, password,
                 RESOURCE_DIRECTORY));
-
-        if (result.isEmpty())
+        if (result == null || result.isEmpty())
         {
             return "Logged in";
         } else
         {
-            return "result";
+            return result;
         }
     }
 
@@ -144,7 +168,7 @@ public class PIAManager
      */
     public String checkConnectionStatus()
     {
-        return startProcessAndReadFirstEcho(buildScriptProcess("pia_get.bat", "connectionstatus"));
+        return startProcessAndReadFirstEcho(buildScriptProcess("pia_get.bat", "connectionstate"));
     }
 
     /**
